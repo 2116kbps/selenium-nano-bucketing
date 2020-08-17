@@ -1,3 +1,5 @@
 keys.txt
 **/.DS_Store
 geckodriver.log
+.vscode/
+settings.json

@@ -1,17 +1,14 @@
 import os
 import sys
+import csv
 import pymysql
 from selenium import webdriver
-
-# Not using these right now, but may come in handy
-import csv
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-# User has to install webdriver
-browser = webdriver.Firefox()
+# Not using this right now, but may come in handy
+# from selenium.webdriver import ActionChains
 
 # Retreive credentials
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -32,21 +29,36 @@ expired = []
 # Temporary list of filenames for testing
 filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3']
 
+class InactiveClient(Exception):
+    pass
+
+class EmptyOrigin(Exception):
+    pass
+
 try:
     db = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, db=DB_NAME, cursorclass=pymysql.cursors.Cursor)
 
 except:
-    print("ERROR: Could not connect to database")
+    sys.exit("ERROR: Could not connect to database")
 
 try:
     arg = sys.argv[1]
     if arg.isdigit():
         origin_id = arg
+    else:
+        raise ValueError
 
     with db.cursor() as cursor:
         cursor.execute("CALL SeleniumOriginName("+ origin_id +")")
         origin_name = cursor.fetchone()[0]
-        origin_csv_file_path = os.path.join(cwd, origin_name + "_Full Origin.csv")
+        if origin_name:
+            origin_csv_file_path = os.path.join(cwd, origin_name + "_Full Origin.csv")
+
+    with db.cursor() as cursor:
+        cursor.execute("CALL SeleniumClientName("+ origin_id +")")
+        client_name = cursor.fetchone()[0]
+        if client_name == "Inactive Client":
+            raise InactiveClient
 
     with db.cursor() as cursor:
         cursor.execute("CALL SeleniumBucket("+ origin_id +")")
@@ -63,13 +75,22 @@ try:
                 result.append(row)
 
         else:
-            sys.exit("ERROR: No rows found")
+            raise EmptyOrigin
 
+except ValueError:
+    sys.exit("ERROR: Not a valid origin")
+except InactiveClient:
+    sys.exit("ERROR: Inactive client")
+except EmptyOrigin:
+    sys.exit("ERROR: Empty origin")
 except:
-    print("ERROR: Could not retrieve origin")
+    sys.exit("ERROR: Could not retrieve origin")
 
 finally:
     db.close()
+
+# User has to install webdriver
+browser = webdriver.Firefox()
 
 def nano_login():
     browser.get("https://tools.nanonation.net/")
@@ -80,7 +101,8 @@ def nano_login():
 def client_select():
     digital_signage = browser.find_element_by_css_selector("#ctl00_ContentPlaceHolder_Main_ConsoleNav1_Inner_dvSignage21")
     digital_signage.click()
-    client = browser.find_element_by_css_selector("tr.alternate:nth-child(12) > td:nth-child(1) > a:nth-child(1)")
+    #client = browser.find_element_by_css_selector("tr.alternate:nth-child(12) > td:nth-child(1) > a:nth-child(1)")
+    client = browser.find_element_by_link_text('RED - Value City Furniture')
     client.click()
 
 def load_all_media():
@@ -110,10 +132,12 @@ def add_media():
 
 # For testing: export CSV of 
 # TO DO: export not_bucketed, expired csvs if lists are not empty
+"""
 with open(origin_csv_file_path, 'w', newline='') as csvfile:
     csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     for row in result:
         csvwriter.writerow(row)
+"""
 
 nano_login()
 client_select()
