@@ -1,7 +1,10 @@
 import os
+import sys
+import pymysql
 from selenium import webdriver
 
 # Not using these right now, but may come in handy
+import csv
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
@@ -16,16 +19,57 @@ keyfile = os.path.join(cwd, 'keys.txt')
 parsed_keyfile = open(keyfile, 'r')
 NANO_LOGIN = parsed_keyfile.readline().rstrip()
 NANO_PASSWORD = parsed_keyfile.readline().rstrip()
+DB_HOST = parsed_keyfile.readline().rstrip()
+DB_USER = parsed_keyfile.readline().rstrip()
+DB_PASS = parsed_keyfile.readline().rstrip()
+DB_NAME = parsed_keyfile.readline().rstrip()
 parsed_keyfile.close()
 
-# Temporary list of filenames for testing
-# TO DO: add DB connectivity
-filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3']
-
 # Empty lists for error logs
-# TO DO: export CSVs if not empty
 not_bucketed = []
 expired = []
+
+# Temporary list of filenames for testing
+filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3']
+
+try:
+    db = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, db=DB_NAME, cursorclass=pymysql.cursors.Cursor)
+
+except:
+    print("ERROR: Could not connect to database")
+
+try:
+    arg = sys.argv[1]
+    if arg.isdigit():
+        origin_id = arg
+
+    with db.cursor() as cursor:
+        cursor.execute("CALL SeleniumOriginName("+ origin_id +")")
+        origin_name = cursor.fetchone()[0]
+        origin_csv_file_path = os.path.join(cwd, origin_name + "_Full Origin.csv")
+
+    with db.cursor() as cursor:
+        cursor.execute("CALL SeleniumBucket("+ origin_id +")")
+        rows = cursor.fetchall()
+        
+        if rows:
+            result = list()
+            # Row name = first index in description tuple
+            column_names = list()
+            for i in cursor.description:
+                column_names.append(i[0])
+            result.append(column_names)
+            for row in rows:
+                result.append(row)
+
+        else:
+            sys.exit("ERROR: No rows found")
+
+except:
+    print("ERROR: Could not retrieve origin")
+
+finally:
+    db.close()
 
 def nano_login():
     browser.get("https://tools.nanonation.net/")
@@ -64,6 +108,13 @@ def add_media():
         select_track(f)
     # TO DO: submit, add to media group, save
 
+# For testing: export CSV of 
+# TO DO: export not_bucketed, expired csvs if lists are not empty
+with open(origin_csv_file_path, 'w', newline='') as csvfile:
+    csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for row in result:
+        csvwriter.writerow(row)
+
 nano_login()
 client_select()
 load_all_media()
@@ -71,5 +122,5 @@ load_all_media_groups()
 select_media_group()
 add_media()
 
-
+# browser.quit()
  
