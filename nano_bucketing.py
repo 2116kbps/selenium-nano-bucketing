@@ -102,7 +102,7 @@ def client_select():
     digital_signage = browser.find_element_by_css_selector("#ctl00_ContentPlaceHolder_Main_ConsoleNav1_Inner_dvSignage21")
     digital_signage.click()
     #client = browser.find_element_by_css_selector("tr.alternate:nth-child(12) > td:nth-child(1) > a:nth-child(1)")
-    client = browser.find_element_by_link_text('RED - Value City Furniture')
+    client = browser.find_element_by_link_text(client_name)
     client.click()
 
 def load_all_media():
