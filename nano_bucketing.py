@@ -7,9 +7,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-# Not using this right now, but may come in handy
-# from selenium.webdriver import ActionChains
-
 # Retreive credentials
 cwd = os.path.dirname(os.path.abspath(__file__))
 keyfile = os.path.join(cwd, 'keys.txt')
@@ -24,10 +21,9 @@ parsed_keyfile.close()
 
 # Empty lists for error logs
 not_bucketed = []
-expired = []
 
 # Temporary list of filenames for testing
-filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3']
+filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3', 'FAILHAHA']
 
 class InactiveClient(Exception):
     pass
@@ -52,7 +48,7 @@ try:
         cursor.execute("CALL SeleniumOriginName("+ origin_id +")")
         origin_name = cursor.fetchone()[0]
         if origin_name:
-            origin_csv_file_path = os.path.join(cwd, origin_name + "_Full Origin.csv")
+            origin_csv_file_path = os.path.join(cwd, origin_name + "_Not Bucketed.csv")
 
     with db.cursor() as cursor:
         cursor.execute("CALL SeleniumClientName("+ origin_id +")")
@@ -70,9 +66,7 @@ try:
             column_names = list()
             for i in cursor.description:
                 column_names.append(i[0])
-            result.append(column_names)
             not_bucketed.append(column_names)
-            expired.append(column_names)
 
             for row in rows:
                 result.append(row)
@@ -115,8 +109,10 @@ def load_all_media():
     browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_ViewStyleList').click()
     # TO DO: implement webdriverwait?
     browser.find_element_by_xpath('//*[@id="ctl00_ContentPlaceHolder_Main_MediaDialogMaximumResults"]/option[4]').click()
-    rows_count = browser.execute_script("return document.getElementsByTagName('tr').length")
-    print(rows_count)
+
+    # TO DO: maybe implement EC to wait for all media to load?
+        #WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'tr.media-item-container:nth-child(300)'))).click()
+        # Possible if statement to reclick on media tab if it's lagging beyond these 20 seconds?
 
 # These will be looped over n times (n = number of media groups)
 
@@ -129,36 +125,44 @@ def select_media_group(media_group):
     browser.find_element_by_link_text(media_group).click()
 
 def select_track(filename):
-    pass
     track = browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td/input[@class="check_file"]')
     track.click()
-
+        
 def add_media():
-    if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
-        browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
-        for f in filenames:
-            select_track(f)
-        browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton').click()
-        WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
-        WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_mediaGroupItems_0_EditMediaGroupItemLink')))
-        browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_saveButton').click()
+    # TO DO: Possible distinction between empty and full media groups?
+        # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
+    
+    browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
+    for index, item in enumerate(filenames):
+        try:
+            select_track(item)
+        except:
+            not_bucketed.append(result[index])
 
-# For testing: export CSV of 
-# TO DO: export not_bucketed, expired csvs if lists are not empty
-"""
-with open(origin_csv_file_path, 'w', newline='') as csvfile:
-    csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for row in result:
-        csvwriter.writerow(row)
-"""
+    browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton').click()
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
+    WebDriverWait(browser, 20).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
+    WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
+
+# Execution
 
 nano_login()
 client_select()
 load_all_media()
+
 # set media group, loop through until it changes
+
 load_all_media_groups()
 select_media_group('TEST MEDIA GROUP')
 add_media()
+
+
+if len(not_bucketed) > 1:
+    with open(origin_csv_file_path, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        for row in not_bucketed:
+            csvwriter.writerow(row)
+
 
 # browser.quit()
  
