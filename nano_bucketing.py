@@ -22,13 +22,13 @@ parsed_keyfile.close()
 # Empty lists for error logs
 not_bucketed = []
 
-# Temporary list of filenames for testing
-filenames = ['Andreas Moe_Borderline_SEBGA1500014_REDTID458.mp3', 'Beck_Turn Away_US3841400054_REDTID948.mp3', 'Beirut_Gibraltar_GBAFL1500029_REDTID974.mp3', 'Ben Abraham_I Belong to You_AUIXE1400003_REDTID985.mp3', 'FAILHAHA']
-
 class InactiveClient(Exception):
     pass
 
 class EmptyOrigin(Exception):
+    pass
+
+class NoBuckets(Exception):
     pass
 
 try:
@@ -74,12 +74,18 @@ try:
         else:
             raise EmptyOrigin
 
+    unique_media_groups = tuple(sorted(set(a for a,b,c,d in result)))
+    if bool(unique_media_groups[0]) == False:
+        raise NoBuckets
+
 except ValueError:
     sys.exit("ERROR: Not a valid origin")
 except InactiveClient:
     sys.exit("ERROR: Inactive client")
 except EmptyOrigin:
     sys.exit("ERROR: Empty origin")
+except NoBuckets:
+    sys.exit("ERROR: Origin has not been sorted into buckets")
 except:
     sys.exit("ERROR: Could not retrieve origin")
 
@@ -87,6 +93,7 @@ finally:
     db.close()
 
 # TO DO: analyze and print bucket info
+
 
 # User has to install webdriver
 browser = webdriver.Firefox()
@@ -131,11 +138,15 @@ def select_track(filename):
 def add_media():
     # TO DO: Possible distinction between empty and full media groups?
         # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
-    
+
+    # I need to have a for loop that goes through unique_buckets
+    # If statement in for loop that opens up new media group if applicable
+
     browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
-    for index, item in enumerate(filenames):
+    
+    for index, item in enumerate(result):
         try:
-            select_track(item)
+            select_track(item[1])
         except:
             not_bucketed.append(result[index])
 
@@ -149,13 +160,11 @@ def add_media():
 nano_login()
 client_select()
 load_all_media()
-
-# set media group, loop through until it changes
-
 load_all_media_groups()
-select_media_group('TEST MEDIA GROUP')
-add_media()
 
+# Set media group first time, then have loop called via add_media?
+select_media_group('TEST MEDIA GROUP 1')
+add_media()
 
 if len(not_bucketed) > 1:
     with open(origin_csv_file_path, 'w', newline='') as csvfile:
@@ -163,6 +172,4 @@ if len(not_bucketed) > 1:
         for row in not_bucketed:
             csvwriter.writerow(row)
 
-
 # browser.quit()
- 
