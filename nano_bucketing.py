@@ -1,6 +1,8 @@
 import os
 import sys
 import csv
+from datetime import date
+
 import pymysql
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -48,7 +50,8 @@ try:
         cursor.execute("CALL SeleniumOriginName("+ origin_id +")")
         origin_name = cursor.fetchone()[0]
         if origin_name:
-            origin_csv_file_path = os.path.join(cwd, origin_name + "_Not Bucketed.csv")
+            directory_name = str(date.today()) + " - " + origin_name
+            csv_file_name = origin_name + "_Not Bucketed.csv"
 
     with db.cursor() as cursor:
         cursor.execute("CALL SeleniumClientName("+ origin_id +")")
@@ -130,30 +133,47 @@ def load_all_media_groups():
     
 def select_media_group(media_group):
     browser.find_element_by_link_text(media_group).click()
-
+    WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_AddToMediaGroup'))).click()
+    
 def select_track(filename):
     track = browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td/input[@class="check_file"]')
     track.click()
-        
-def add_media():
-    # TO DO: Possible distinction between empty and full media groups?
-        # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
 
-    # I need to have a for loop that goes through unique_buckets
-    # If statement in for loop that opens up new media group if applicable
-
-    browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
-    
-    for index, item in enumerate(result):
-        try:
-            select_track(item[1])
-        except:
-            not_bucketed.append(result[index])
-
+def save_media_group():
     browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton').click()
     WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
     WebDriverWait(browser, 20).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
     WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
+        
+def add_media():
+    # TO DO: Possible distinction between empty and full media groups?
+        # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
+    counter = 0
+    current_media_group = unique_media_groups[counter]
+    select_media_group(current_media_group)
+
+    # Previously used this to click "Add Media, but moved this to select_media_group()"
+    #browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
+    
+    for index, item in enumerate(result):
+        if item[0] == current_media_group:
+            try:
+                select_track(item[1])
+            except:
+                not_bucketed.append(result[index])
+        else:
+            save_media_group()
+            counter += 1
+            current_media_group = unique_media_groups[counter]
+            load_all_media_groups()
+            select_media_group(current_media_group)
+            try:
+                select_track(item[1])
+            except:
+                not_bucketed.append(result[index])
+
+    save_media_group()
+
 
 # Execution
 
@@ -161,12 +181,12 @@ nano_login()
 client_select()
 load_all_media()
 load_all_media_groups()
-
-# Set media group first time, then have loop called via add_media?
-select_media_group('TEST MEDIA GROUP 1')
 add_media()
 
 if len(not_bucketed) > 1:
+    os.mkdir(os.path.join(cwd,directory_name))
+    origin_csv_file_path = os.path.join(cwd,directory_name,csv_file_name)
+
     with open(origin_csv_file_path, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in not_bucketed:
