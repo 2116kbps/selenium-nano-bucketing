@@ -12,6 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 # Retreive credentials
 cwd = os.path.dirname(os.path.abspath(__file__))
 keyfile = os.path.join(cwd, 'keys.txt')
+chrome_exec = os.path.join(cwd, 'chromedriver')
 parsed_keyfile = open(keyfile, 'r')
 NANO_LOGIN = parsed_keyfile.readline().rstrip()
 NANO_PASSWORD = parsed_keyfile.readline().rstrip()
@@ -98,8 +99,8 @@ finally:
 # TO DO: analyze and print bucket info
 
 
-# User has to install webdriver
-browser = webdriver.Firefox()
+# User has to install webdriver for Chrome: https://chromedriver.chromium.org/downloads
+browser = webdriver.Chrome(executable_path=chrome_exec)
 
 # These will be called once
 
