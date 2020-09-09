@@ -125,6 +125,10 @@ def load_all_media():
         #WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'tr.media-item-container:nth-child(300)'))).click()
         # Possible if statement to reclick on media tab if it's lagging beyond these 20 seconds?
 
+def select_track(filename):
+    track = browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td/input[@class="check_file"]')
+    track.click()
+
 # These will be looped over n times (n = number of media groups)
 
 def load_all_media_groups():
@@ -136,17 +140,13 @@ def select_media_group(media_group):
     browser.find_element_by_link_text(media_group).click()
     WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_AddToMediaGroup'))).click()
     
-def select_track(filename):
-    track = browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td/input[@class="check_file"]')
-    track.click()
-
 def save_media_group():
-    browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton').click()
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton'))).click()
     WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
     WebDriverWait(browser, 20).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
     WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
         
-def add_media():
+def add_media_to_media_group():
     # TO DO: Possible distinction between empty and full media groups?
         # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
     counter = 0
@@ -175,14 +175,66 @@ def add_media():
 
     save_media_group()
 
+# Similar to above, but for Child Playlists instead of Media Groups
+
+def load_all_playlists():
+    browser.find_element_by_css_selector("td.tab:nth-child(7)").click()
+    # TO DO: implement webdriverwait?
+    browser.find_element_by_xpath('/html/body/form/div[3]/div[3]/div[2]/div/div/select/option[4]').click()
+    browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_searchButton').click()
+    
+    
+def select_playlist(playlist):
+    browser.find_element_by_link_text(playlist).click()
+    WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#AddToPlaylistButton'))).click()
+    
+def save_playlist():
+    WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_SelectMediaItemDialog_SaveButton'))).click()
+    WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#SaveButton'))).click()
+        
+def add_media_to_playlist():
+    # TO DO: Possible distinction between empty and full media groups?
+        # if browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_mediaGroupItems > tbody > tr.empty_row > td > span > center'):
+    counter = 0
+    current_playlist = unique_media_groups[counter]
+    select_playlist(current_playlist)
+
+    # Previously used this to click "Add Media, but moved this to select_media_group()"
+    #browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
+    
+    for index, item in enumerate(result):
+        if item[0] == current_playlist:
+            try:
+                select_track(item[1])
+            except:
+                not_bucketed.append(result[index])
+        else:
+            save_playlist()
+            counter += 1
+            current_playlist = unique_media_groups[counter]
+            load_all_playlists()
+            select_playlist(current_playlist)
+            try:
+                select_track(item[1])
+            except:
+                not_bucketed.append(result[index])
+
+    save_playlist()
+
 
 # Execution
 
 nano_login()
 client_select()
 load_all_media()
-load_all_media_groups()
-add_media()
+
+if client_name == "RED - Nano Client":
+    load_all_playlists()
+    add_media_to_playlist()
+    
+else:
+    load_all_media_groups()
+    add_media_to_media_group()
 
 if len(not_bucketed) > 1:
     os.mkdir(os.path.join(cwd,directory_name))
