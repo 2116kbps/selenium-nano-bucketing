@@ -226,10 +226,10 @@ if len(not_bucketed) > 1:
         for row in not_bucketed:
             csvwriter.writerow(row)
 
-    print("Tracks that could not be bucketed added to " + csv_file_name)
+    print('\n' + 'Tracks that could not be bucketed added to ' + csv_file_name + '\n')
 
 else:
-    print("All tracks bucketed for " + origin_name)
+    print('\n' + 'All tracks bucketed for ' + origin_name + '\n')
 
 # Not calling this because user may want to see results in browser
 # browser.quit()
