@@ -178,6 +178,8 @@ def add_media_to_media_group():
     #browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_AddToMediaGroup').click()
     
     for index, item in enumerate(result):
+        global global_counter
+        global saved_index
         global_counter = index
         if item[0] == current_media_group:
             try:
@@ -186,6 +188,7 @@ def add_media_to_media_group():
                 not_bucketed.append(result[index])
         else:
             save_media_group()
+            saved_index = global_counter
             counter += 1
             current_media_group = unique_media_groups[counter]
             load_all_media_groups()
@@ -200,10 +203,8 @@ def add_media_to_media_group():
 
 def log_remaining_items():
     if saved_index < len(result):
-        print("saved index: " + str(saved_index))
         for x in range(saved_index, len(result)):
-            # not_bucketed.append(result[x])
-            print(result[x])
+            not_bucketed.append(result[x])
 
 # Execution
 try:
@@ -214,7 +215,6 @@ try:
     add_media_to_media_group()
 
 except:
-    print("Could not complete script - all unbucketed tracks added to " + csv_file_name)
     log_remaining_items()
 
 if len(not_bucketed) > 1:
@@ -226,4 +226,10 @@ if len(not_bucketed) > 1:
         for row in not_bucketed:
             csvwriter.writerow(row)
 
+    print("Tracks that could not be bucketed added to " + csv_file_name)
+
+else:
+    print("All tracks bucketed for " + origin_name)
+
+# Not calling this because user may want to see results in browser
 # browser.quit()
