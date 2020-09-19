@@ -142,6 +142,7 @@ def load_all_media_groups():
     else:
         browser.find_element_by_css_selector("td.tab:nth-child(5)").click()
         browser.find_element_by_xpath('/html/body/form/div[3]/div[3]/div[2]/div/div/select/option[4]').click()
+        browser.find_element_by_css_selector('#ctl00_ContentPlaceHolder_Main_searchButton').click()
 
     # I would implement presence_of_element_located here (like with load_all_media) but clients don't all have > 200 buckets
     
