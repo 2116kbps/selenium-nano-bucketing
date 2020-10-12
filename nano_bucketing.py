@@ -26,6 +26,7 @@ parsed_keyfile.close()
 
 # Empty lists for error logs
 not_bucketed = []
+expired = []
 
 # These variables will help construct error logs if an exception is raised
 global_counter = 0
@@ -58,7 +59,8 @@ try:
         origin_name = cursor.fetchone()[0]
         if origin_name:
             directory_name = timestamp + " - " + origin_name
-            csv_file_name = origin_name + "_Not Bucketed.csv"
+            not_bucketed_csv_file_name = origin_name + "_Not Bucketed.csv"
+            expired_csv_file_name = origin_name + "_Expired.csv"
 
     with db.cursor() as cursor:
         cursor.execute("CALL SeleniumClientName("+ origin_id +")")
@@ -77,6 +79,7 @@ try:
             for i in cursor.description:
                 column_names.append(i[0])
             not_bucketed.append(column_names)
+            expired.append(column_names)
 
             for row in rows:
                 result.append(row)
@@ -130,6 +133,11 @@ def load_all_media():
 def select_track(filename):
     track = browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td/input[@class="check_file"]')
     track.click()
+    try:
+        browser.find_element_by_xpath('//tr/td[(contains(text(),'+ '"' + filename + '"'+'))]/../td[(contains(text(),'+ '"Expired"'+'))]')
+        return "Expired"
+    except:
+        pass
 
 # These will be looped over n times (n = number of media groups)
 
@@ -164,9 +172,13 @@ def save_media_group():
         WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#SaveButton'))).click()
 
     else:
-        WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
-        WebDriverWait(browser, 20).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
-        WebDriverWait(browser, 20).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
+        try:
+            WebDriverWait(browser, 10).until(EC.visibility_of_element_located((By.ID, 'ctl00_ContentPlaceHolder_Main_insertAtItems_ctl01_expandingRow'))).click()
+            WebDriverWait(browser, 10).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
+        except:
+            WebDriverWait(browser, 10).until(EC.invisibility_of_element_located((By.ID, "ctl00_ContentPlaceHolder_Main_insertAtDialogExtender_backgroundElement")))
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '#ctl00_ContentPlaceHolder_Main_saveButton'))).click()
         
 def add_media_to_media_group():
     # TO DO: Possible distinction between empty and full media groups?
@@ -184,7 +196,9 @@ def add_media_to_media_group():
         global_counter = index
         if item[0] == current_media_group:
             try:
-                select_track(item[1])
+                selected = select_track(item[1])
+                if selected == "Expired":
+                    expired.append(result[index])
             except:
                 not_bucketed.append(result[index])
         else:
@@ -195,7 +209,9 @@ def add_media_to_media_group():
             load_all_media_groups()
             select_media_group(current_media_group)
             try:
-                select_track(item[1])
+                selected = select_track(item[1])
+                if selected == "Expired":
+                    expired.append(result[index])
             except:
                 not_bucketed.append(result[index])
 
@@ -220,17 +236,29 @@ except:
 
 if len(not_bucketed) > 1:
     os.mkdir(os.path.join(cwd,directory_name))
-    origin_csv_file_path = os.path.join(cwd,directory_name,csv_file_name)
+    origin_csv_file_path = os.path.join(cwd,directory_name,not_bucketed_csv_file_name)
 
     with open(origin_csv_file_path, 'w', newline='') as csvfile:
         csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         for row in not_bucketed:
             csvwriter.writerow(row)
 
-    print('\n' + 'Tracks that could not be bucketed added to ' + csv_file_name + '\n')
+    print('\n' + 'Tracks that could not be bucketed added to ' + not_bucketed_csv_file_name + '\n')
 
 else:
     print('\n' + 'All tracks bucketed for ' + origin_name + '\n')
+
+
+if len(expired) > 1:
+    if len(not_bucketed) < 1:
+        os.mkdir(os.path.join(cwd,directory_name))
+
+    origin_csv_file_path = os.path.join(cwd,directory_name,expired_csv_file_name)
+
+    with open(origin_csv_file_path, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        for row in expired:
+            csvwriter.writerow(row)
 
 # Not calling this because user may want to see results in browser
 # browser.quit()
