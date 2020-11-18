@@ -255,10 +255,14 @@ if len(expired) > 1:
 
     origin_csv_file_path = os.path.join(cwd,directory_name,expired_csv_file_name)
 
-    with open(origin_csv_file_path, 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    try:
+        with open(origin_csv_file_path, 'w', newline='') as csvfile:
+            csvwriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            for row in expired:
+                csvwriter.writerow(row)
+    except:
         for row in expired:
-            csvwriter.writerow(row)
+            print(row + '\n')
 
 # Not calling this because user may want to see results in browser
 # browser.quit()
